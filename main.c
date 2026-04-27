@@ -2,311 +2,341 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define NULO 0
-#define MAX_NOS 5000
-#define MAX_VERSOES 100
+#define MAX_VERSIONS 100
 #define NEGRO 0
 #define RUBRO 1
 
-int raiz[MAX_VERSOES];
+typedef struct no {
+    int chave;
+    int cor;
+    struct no *esq;
+    struct no *dir;
+    struct no *pai;
+} No;
 
-int chave[MAX_NOS];
-int cor[MAX_NOS];
-int esq[MAX_NOS];
-int dir[MAX_NOS];
-int pai[MAX_NOS];
+// Criando as raizes
+No *raiz[MAX_VERSIONS];
+int num_versions = 0;
 
-int nos = 0;
-int versoes = 0;
+// Criando o nó externo
+No *nulo = NULL;
 
-/* Algoritmo que copia a última árvore por completo (retorna a nova raiz) */
-int Copiar(int x, int pai_x) {
-    if (x == NULO) return NULO;
+// Busca o sucessor estritamente maior
+No *SucessorCustom(int T, int k) {
+    No *x = raiz[T];
+    No *sucessor = nulo;
 
-    int curr = ++nos;
-    chave[curr] = chave[x];
-    cor[curr] = cor[x];
-    pai[curr] = pai_x;
+    while (x != nulo) {
+        if (x->chave > k) {
+            sucessor = x;
+            x = x->esq;
+        } else {
+            x = x->dir;
+        }
+    }
 
-    esq[curr] = Copiar(esq[x], curr);
-    dir[curr] = Copiar(dir[x], curr);
-    
+    return sucessor;
+}
+
+// Algoritmo que copia recursivamente o nó passado
+No *Copiar(No *x, No *pai_x) {
+    if (x == nulo) return nulo;
+
+    No *curr = (No *) malloc(sizeof(No));
+
+    curr->chave = x->chave;
+    curr->cor = x->cor;
+    curr->pai = pai_x;
+
+    curr->esq = Copiar(x->esq, curr);
+    curr->dir = Copiar(x->dir, curr);
+
     return curr;
 }
 
-/* Algoritmo para visitar um nó */
-void Visitar(int x, int altura) {
-    printf("%d,%d,%c ", chave[x], altura, cor[x] == RUBRO ? 'R' : 'N');
+// Algoritmo para visitar um nó
+void Visitar(No *x, int altura) {
+    printf("%d,%d,%c ", x->chave, altura, x->cor == NEGRO ? 'N' : 'R');
 }
 
-/* ------------------------------------------------------------------------ */
-/* Abaixo todos os algoritmos foram criados pelo professor durante as aulas */
-
-/* Estruturas de Dados: 11 Árvore Binária de Busca (00:26:46) */
-int Buscar(int x, int k) {
-    if (x == NULO || chave[x] == k) {
-        return x;
-    }
-
-    if (k < chave[x]) {
-        return Buscar(esq[x], k);
-    }
-    return Buscar(dir[x], k);
-}
-
-/* Estruturas de Dados: 10 Percursos em Árvores (00:33:42) */
-void EmOrdem(int x, int altura) {
-    if (x != NULO) {
-        EmOrdem(esq[x], altura + 1);
+// ------------------------------------------------------------------------
+// Abaixo todos os algoritmos foram criados pelo professor durante as aulas
+ 
+// Estruturas de Dados: 10 Percursos em Árvores (00:33:42)
+void EmOrdem(No *x, int altura) {
+    if (x != nulo) {
+        EmOrdem(x->esq, altura + 1);
         Visitar(x, altura);
-        EmOrdem(dir[x], altura + 1);
+        EmOrdem(x->dir, altura + 1);
     }
 }
 
-/* Estruturas de Dados: 11 Árvore Binária de Busca (00:35:27) */
-int Minimo(int T, int x) {
-    while (esq[x] != NULO) {
-        x = esq[x];
-    }
+// Estruturas de Dados: 11 Árvore Binária de Busca (00:26:46)
+No *Buscar(No *x, int k) {
+    if (x == nulo || x->chave == k) 
+        return x;
+
+    if (k < x->chave)
+        return Buscar(x->esq, k);
+
+    return Buscar(x->dir, k);
+}
+
+// Estruturas de Dados: 11 Árvore Binária de Busca (00:35:27)
+No *Minimo(int T, No *x) {
+    while (x->esq != nulo)
+        x = x->esq;
 
     return x;
 }
 
-/* Estruturas de Dados: 11 Árvore Binária de Busca (01:01:38) */
-int Sucessor(int T, int x) {
-    if (dir[x] != NULO) {
-        return Minimo(T, dir[x]);
-    }
+// Estruturas de Dados: 11 Árvore Binária de Busca (01:01:38)
+No *Sucessor(int T, No *x) {
+    if (x->dir != nulo)
+        return Minimo(T, x->dir);
 
-    int y = pai[x];
+    No *y = x->pai;
 
-    while (y != NULO && x == dir[x]) {
+    while (y != nulo && x == y->dir) {
         x = y;
-        y = pai[x];
+        y = y->pai;
     }
 
     return y;
 }
 
-/* Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (00:01:13) */
-void RotacaoEsq(int T, int x) {
-    int y = dir[x];
-    dir[x] = esq[y];
-    
-    if (esq[y] != NULO) {
-        pai[esq[y]] = x;
-    }
+// Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (00:01:13)
+void RotacaoEsq(int T, No *x) {
+    No *y = x->dir;
+    x->dir = y->esq;
 
-    pai[y] = pai[x];
+    if (y->esq != nulo)
+        y->esq->pai = x;
 
-    if (pai[x] == NULO) {
+    y->pai = x->pai;
+
+    if (x->pai == nulo)
         raiz[T] = y;
-    } else if (x == esq[pai[x]]) {
-        esq[pai[x]] = y;
-    } else {
-        dir[pai[x]] = y;
-    }
+    else if (x == x->pai->esq)
+        x->pai->esq = y;
+    else
+        x->pai->dir = y;
 
-    esq[y] = x;
-    pai[x] = y;
+    y->esq = x;
+    x->pai = y;
 }
 
-/* Simétrico à RotacaoEsq */
-void RotacaoDir(int T, int y) {
-    int x = esq[y];
-    esq[y] = dir[x];
+// Simétrico à RotacaoEsq
+void RotacaoDir(int T, No *y) {
+    No *x = y->esq;
+    y->esq = x->dir;
 
-    if (dir[x] != NULO) {
-        pai[dir[x]] = y;
-    }
+    if (x->dir != nulo)
+        x->dir->pai = y;
 
-    pai[x] = pai[y];
+    x->pai = y->pai;
 
-    if (pai[y] == NULO) {
+    if (y->pai == nulo)
         raiz[T] = x;
-    } else if (y == dir[pai[y]]) {
-        dir[pai[y]] = x;
-    } else {
-        esq[pai[y]] = x;
-    }
+    else if (y == y->pai->dir)
+        y->pai->dir = x;
+    else
+        y->pai->esq = x;
 
-    dir[x] = y;
-    pai[y] = x;
+    x->dir = y;
+    y->pai = x;
 }
 
-/* Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (01:02:37) */
-void ConsertarInclusao(int T, int z) {
-    while (cor[pai[z]] == RUBRO) {
-        if (pai[z] == esq[pai[pai[z]]]) {
-            int y = dir[pai[pai[z]]];
+// Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (01:02:37)
+void ConsertarInclusao(int T, No *z) {
+    while (z->pai->cor == RUBRO) {
+        if (z->pai == z->pai->pai->esq) {
+            No *y = z->pai->pai->dir;
 
-            if (cor[y] == RUBRO) {
-                cor[pai[z]] = NEGRO;
-                cor[y] = NEGRO;
-                z = pai[y];
-                cor[z] = RUBRO;
+            if (y->cor == RUBRO) {
+                z->pai->cor = NEGRO;
+                y->cor = NEGRO;
+                z = y->pai;
+                z->cor = RUBRO;
             } else { 
-                if (z == dir[pai[z]]) {
-                    z = pai[z];
+                if (z == z->pai->dir) {
+                    z = z->pai;
                     RotacaoEsq(T, z);
                 }
                 
-                cor[pai[z]] = NEGRO;
-                cor[pai[pai[z]]] = RUBRO;
-                RotacaoDir(T, pai[pai[z]]);
+                z->pai->cor = NEGRO;
+                z->pai->pai->cor = RUBRO;
+                RotacaoDir(T, z->pai->pai);
             }
         } else {
-            int y = esq[pai[pai[z]]];
+            No *y = z->pai->pai->esq;
 
-            if (cor[y] == RUBRO) {
-                cor[pai[z]] = NEGRO;
-                cor[y] = NEGRO;
-                z = pai[y];
-                cor[z] = RUBRO;
+            if (y->cor == RUBRO) {
+                z->pai->cor = NEGRO;
+                y->cor = NEGRO;
+                z = y->pai;
+                z->cor = RUBRO;
             } else { 
-                if (z == esq[pai[z]]) {
-                    z = pai[z];
+                if (z == z->pai->esq) {
+                    z = z->pai;
                     RotacaoDir(T, z);
                 }
                 
-                cor[pai[z]] = NEGRO;
-                cor[pai[pai[z]]] = RUBRO;
-                RotacaoEsq(T, pai[pai[z]]);
+                z->pai->cor = NEGRO;
+                z->pai->pai->cor = RUBRO;
+                RotacaoEsq(T, z->pai->pai);
             }
         }
     } 
 
-    cor[raiz[T]] = NEGRO;
+    raiz[T]->cor = NEGRO;
 }
 
-/* Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (17:36) */
-void Incluir(int T, int z) {
-    int y = NULO;
-    int x = raiz[T];
-
-    while (x != NULO) {
+// Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (17:36)
+void Incluir(int T, No *z) {
+    No *y = nulo;
+    No *x = raiz[T];
+    
+    while (x != nulo) {
         y = x;
 
-        if (chave[z] < chave[x]) {
-            x = esq[x];
-        } else {
-            x = dir[x];
-        }
+        if (z->chave < x->chave)
+            x = x->esq;
+        else
+            x = x->dir;   
     }
 
-    pai[z] = y;
+    z->pai = y;
 
-    if (y == NULO) {
+    if (y == nulo)
         raiz[T] = z;
-    } else if (chave[z] < chave[y]) {
-        esq[y] = z;
-    } else {
-        dir[y] = z;
-    }
+    else if (z->chave < y->chave)
+        y->esq = z;
+    else
+        y->dir = z;
 
-    esq[z] = dir[z] = NULO;
-    cor[z] = RUBRO;
+    z->esq = z->dir = nulo;
+    z->cor = RUBRO;
     ConsertarInclusao(T, z);
 }
 
-/* Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:03:06) */
-void Transplantar(int T, int u, int v) {
-    if (pai[u] == NULO) {
+// Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:03:06)
+void Transplantar(int T, No *u, No *v) {
+    if (u->pai == nulo)
         raiz[T] = v;
-    } else if (u == esq[pai[u]]) {
-        esq[pai[u]] = v;
-    } else {
-        dir[pai[u]] = v;
-    }
+    else if (u == u->pai->esq)
+        u->pai->esq = v;
+    else    
+        u->pai->dir = v;
 
-    pai[v] = pai[u];
+    v->pai = u->pai;
 }
 
-/* Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:56:51) */
-void ConsertarRemocao(int T, int x) {
-    while (x != raiz[T] && cor[x] == NEGRO) {
-        if (x == esq[pai[x]]) {
-            int w = dir[pai[x]];
-            if (cor[w] == RUBRO) {
-                cor[w] = NEGRO;
-                cor[pai[x]] = RUBRO;
-                RotacaoEsq(T, pai[x]);
-                w = dir[pai[x]];
+// Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:56:51)
+void ConsertarRemocao(int T, No *x) {
+    while (x != raiz[T] && x->cor == NEGRO) {
+        if (x == x->pai->esq) {
+            No *w = x->pai->dir;
+            if (w->cor == RUBRO) {
+                w->cor = NEGRO;
+                x->pai->cor = RUBRO;
+                RotacaoEsq(T, x->pai);
+                w = x->pai->dir;
             }
 
-            if (cor[esq[w]] == NEGRO && cor[dir[w]] == NEGRO) {
-                cor[w] = RUBRO;
-                x = pai[x];
+            if (w->esq->cor == NEGRO && w->dir->cor == NEGRO) {
+                w->cor = RUBRO;
+                x = x->pai;
             } else {
-                if (cor[dir[w]] == NEGRO) {
-                    cor[esq[w]] = NEGRO;
-                    cor[w] = RUBRO;
-                    RotacaoDir(T, pai[x]);
-                    w = dir[pai[x]];
+                if (w->dir->cor == NEGRO) {
+                    w->esq->cor = NEGRO;
+                    w->cor = RUBRO;
+                    RotacaoDir(T, w); // No pseudocódigo estava RotacaoDir(T, x->pai);
+                    w = x->pai->dir;
                 }
 
-                cor[w] = cor[pai[x]];
-                cor[pai[x]] = NEGRO;
-                cor[dir[w]] = NEGRO;
-                RotacaoEsq(T, pai[x]);
+                w->cor = x->pai->cor;
+                x->pai->cor = NEGRO;
+                w->dir->cor = NEGRO;
+                RotacaoEsq(T, x->pai);
+
                 x = raiz[T];
             }
         } else {
-            int w = esq[pai[x]];
-            if (cor[w] == RUBRO) {
-                cor[w] = NEGRO;
-                cor[pai[x]] = RUBRO;
-                RotacaoDir(T, pai[x]);
-                w = esq[pai[x]];
+            No *w = x->pai->esq;
+            if (w->cor == RUBRO) {
+                w->cor = NEGRO;
+                x->pai->cor = RUBRO;
+                RotacaoDir(T, x->pai);
+                w = x->pai->esq;
             }
 
-            if (cor[dir[w]] == NEGRO && cor[esq[w]] == NEGRO) {
-                cor[w] = RUBRO;
-                x = pai[x];
+            if (w->dir->cor == NEGRO && w->esq->cor == NEGRO) {
+                w->cor = RUBRO;
+                x = x->pai;
             } else {
-                if (cor[esq[w]] == NEGRO) {
-                    cor[dir[w]] = NEGRO;
-                    cor[w] = RUBRO;
-                    RotacaoEsq(T, pai[x]);
-                    w = esq[pai[x]];
+                if (w->esq->cor == NEGRO) {
+                    w->dir->cor = NEGRO;
+                    w->cor = RUBRO;
+                    RotacaoEsq(T, w); // No pseudocódigo estava RotacaoEsq(T, x->pai);
+                    w = x->pai->esq;
                 }
 
-                cor[w] = cor[pai[x]];
-                cor[pai[x]] = NEGRO;
-                cor[esq[w]] = NEGRO;
-                RotacaoDir(T, pai[x]);
+                w->cor = x->pai->cor;
+                x->pai->cor = NEGRO;
+                w->esq->cor = NEGRO;
+                RotacaoDir(T, x->pai);
                 x = raiz[T];
             }
         }
-
-        cor[x] = NEGRO;
     }
+
+    x->cor = NEGRO;
 }
 
-/* Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:05:05) */
-void Remover(int T, int z) {
-    int y = z; int cor_original_y = cor[y]; int x;
-    if (esq[z] == NULO) {
-        x = dir[z];
+// Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:05:05)
+void Remover(int T, No *z) {
+    No *y = z; int cor_original_y = y->cor; 
+
+    No *x; // Não tinha no pseudocódigo
+    
+    if (z->esq == nulo) {
+        x = z->dir;
         Transplantar(T, z, x);
-    } else if (dir[z] == NULO) {
-        x = esq[z];
+    } else if (z->dir == nulo) {
+        x = z->esq;
         Transplantar(T, z, x);
     } else {
         y = Sucessor(T, z);
-        x = dir[y]; cor_original_y = cor[y];
-        Transplantar(T, y, x);
-        esq[y] = esq[z];
-        pai[esq[z]] = y;
-        dir[y] = dir[z];
-        pai[dir[z]] = y;
+        x = y->dir; cor_original_y = y->cor;
+        
+        // Não tinha no pseudocódigo
+        if (y->pai == z) {
+            x->pai = y;
+        } else {
+            Transplantar(T, y, x);
+            y->dir = z->dir;
+            z->dir->pai = y;
+        }
         Transplantar(T, z, y);
-        cor[y] = cor[z];
+        y->esq = z->esq;
+        z->esq->pai = y;
+        y->cor = z->cor;
+
+        // Estava no pseudocódigo
+        // Transplantar(T, y, x);
+        // y->esq = z->esq;
+        // y->esq->pai = y;
+        // y->dir = z->dir;
+        // z->dir->pai = y;
+        // Transplantar(T, z, y);
+        // y->cor = z->cor;
     }
 
-    if (cor_original_y == NEGRO) {
+    free(z); // Não tinha no pseudocódigo
+
+    if (cor_original_y == NEGRO)
         ConsertarRemocao(T, x);
-    }
 }  
 
 int main(int argc, char *argv[]) {
@@ -315,60 +345,58 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Lendo o arquivo de entrada */
+    // Lendo o arquivo de entrada
     FILE *arquivo = fopen(argv[1], "r");
     if (arquivo == NULL) {
         perror("Erro ao abrir arquivo");
         return 1;
     }
 
-    /* Inicializa o nó externo */
-    cor[0] = NEGRO;
-    esq[0] = NULO;
-    dir[0] = NULO;
-    pai[0] = NULO;
+    // Inicializando o nó externo
+    nulo = (No *) malloc(sizeof(No));
+    nulo->cor = NEGRO; 
+    nulo->esq = nulo->dir = nulo->pai = nulo;
 
-    /* Inicializa a primeira árvore */
-    raiz[0] = NULO;
-    
-    char tag[3]; int a, b;
-    while (fscanf(arquivo, "%s %d %d", tag, &a, &b) >= 2) { /* b será opcional */
+    // Inicializa a primeira árvore
+    raiz[num_versions] = nulo;
+
+    char tag[4]; int a, b;
+    while (fscanf(arquivo, "%s %d %d", tag, &a, &b) >= 2) { // b será opcional
         if (strcmp(tag, "INC") == 0) {
-            versoes++;
+            num_versions++;
 
-            raiz[versoes] = Copiar(raiz[versoes - 1], NULO);
+            raiz[num_versions] = Copiar(raiz[num_versions - 1], nulo);
 
-            nos++;
-            chave[nos] = a;
-            
-            Incluir(versoes, nos);
+            No *no = (No *) malloc(sizeof(No));
+            no->chave = a;
+
+            Incluir(num_versions, no);
         } else if (strcmp(tag, "REM") == 0) {
-            versoes++;
+            num_versions++;
 
-            raiz[versoes] = Copiar(raiz[versoes - 1], NULO);
+            raiz[num_versions] = Copiar(raiz[num_versions - 1], nulo);
 
-            int no = Buscar(raiz[versoes], a);
+            No *no = Buscar(raiz[num_versions], a);
             
-            if (no != NULO) {
-                Remover(versoes, no);
-            }
+            if (no != nulo)
+                Remover(num_versions, no);
             
         } else if (strcmp(tag, "SUC") == 0) {
             printf("SUC %d %d\n", a, b);
 
-            int v = b < 0 || b > versoes ? versoes : b;
+            int v = b < 0 || b > num_versions ? num_versions : b;
             
-            int no = Sucessor(v, Buscar(raiz[v], a));
+            No *no = SucessorCustom(v, a);
 
-            if (no == NULO) {
+            if (no == nulo) {
                 printf("infinito\n");
             } else {
-                printf("%d\n", chave[no]);
+                printf("%d\n", no->chave);
             }
         } else if (strcmp(tag, "IMP") == 0) {
             printf("IMP %d\n", a);
             
-            int v = a < 0 || a > versoes ? versoes : a;
+            int v = a < 0 || a > num_versions ? num_versions : a;
             
             EmOrdem(raiz[v], 0);
             

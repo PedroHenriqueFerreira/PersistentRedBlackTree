@@ -1,6 +1,6 @@
 # Árvore Rubro-Negra com Persistência Parcial
 
-Este repositório contém a implementação de uma Árvore Binária de Busca balanceada (Rubro-Negra) com suporte a persistência parcial. A estrutura mantém o histórico de suas modificações (inclusões e remoções), permitindo consultas em versões anteriores.
+Este repositório contém a implementação de uma Árvore Binária de Busca balanceada (Rubro-Negra) com persistência parcial. A estrutura mantém o histórico de suas modificações (inclusões e remoções), permitindo consultas em versões anteriores.
 
 ## Linguagem de Programação Usada
 
@@ -45,8 +45,9 @@ Em vez de utilizar uma `struct` tradicional com ponteiros, a estrutura dos nós 
 * `pai[]`: Armazena o índice do nó pai.
 
 ### Funções Principais
-* `Copiar(int x, int pai_x)`: Realiza uma cópia profunda (deep copy) recursiva de uma árvore ou subárvore, gerando novos índices para garantir a persistência da versão anterior.
-* `Buscar(int x, int k)`: Busca um nó com a chave `k` a partir do nó `x`.
+* `SucessorCustom(int T, int k)`: Busca o sucessor estritamente maior do nó com chave `k` na versão `T` da árvore.
+* `Copiar(No *x, No *pai_x)`: Realiza uma cópia profunda recursiva de uma árvore ou subárvore, gerando novos índices para garantir a persistência da versão anterior.
+* `Buscar(No *x, int k)`: Busca um nó com a chave `k` a partir do nó `x`.
 * `Minimo(int T, int x)`: Retorna o índice do nó com o menor valor na subárvore `x`.
 * `Sucessor(int T, int x)`: Retorna o índice do nó que é o sucessor em ordem do nó `x`.
 * `Visitar(int x, int altura)`: Imprime as informações de um nó formatadas como `chave,altura,cor`.
