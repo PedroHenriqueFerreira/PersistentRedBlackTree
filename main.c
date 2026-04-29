@@ -9,6 +9,7 @@
 typedef struct no {
     int chave;
     int cor;
+    int versao; // Não está no pseudo-código
     struct no *esq;
     struct no *dir;
     struct no *pai;
@@ -16,7 +17,7 @@ typedef struct no {
 
 // Criando as raizes
 No *raiz[MAX_VERSIONS];
-int num_versions = 0;
+int num_versoes = 0;
 
 // Criando o nó externo
 No *nulo = NULL;
@@ -39,35 +40,57 @@ No *SucessorCustom(int T, int k) {
 }
 
 // Algoritmo que copia recursivamente o nó passado
-No *Copiar(No *x, No *pai_x) {
-    if (x == nulo) return nulo;
+No *Copiar(No *x) {
+    // Caso o nó seja nulo ou já esteja atualizado, apenas retorna
+    if (x == nulo || x->versao == num_versoes)
+        return x; 
 
-    No *curr = (No *) malloc(sizeof(No));
+    // Copia os dados do nó
+    No *no = (No *) malloc(sizeof(No));
+    no->chave = x->chave; no->cor = x->cor;
+    no->versao = num_versoes;
+    no->pai = x->pai; no->esq = x->esq; no->dir = x->dir;
 
-    curr->chave = x->chave;
-    curr->cor = x->cor;
-    curr->pai = pai_x;
+    // Reconecta os filhos para o novo nó
+    if (no->esq != nulo) no->esq->pai = no;
+    if (no->dir != nulo) no->dir->pai = no;
 
-    curr->esq = Copiar(x->esq, curr);
-    curr->dir = Copiar(x->dir, curr);
+    if (no->pai == nulo)
+        raiz[num_versoes] = no; // Atualiza a raiz para a nova versão
+    else {
+        int is_esq = no->pai->esq == x;
 
-    return curr;
+        no->pai = Copiar(no->pai); // Propaga a cópia para o pai
+
+        // Reconecta o pai para o novo nó
+        if (is_esq) 
+            no->pai->esq = no;
+        else
+            no->pai->dir = no;
+    }
+
+    return no;
 }
 
 // Algoritmo para visitar um nó
-void Visitar(No *x, int altura) {
-    printf("%d,%d,%c ", x->chave, altura, x->cor == NEGRO ? 'N' : 'R');
+void Visitar(No *x, int altura, int *aux) {
+    if (*aux)
+        *aux = 0;
+    else
+        printf(" ");
+
+    printf("%d,%d,%c", x->chave, altura, x->cor == NEGRO ? 'N' : 'R');
 }
 
 // ------------------------------------------------------------------------
 // Abaixo todos os algoritmos foram criados pelo professor durante as aulas
  
 // Estruturas de Dados: 10 Percursos em Árvores (00:33:42)
-void EmOrdem(No *x, int altura) {
+void EmOrdem(No *x, int altura, int *aux) {
     if (x != nulo) {
-        EmOrdem(x->esq, altura + 1);
-        Visitar(x, altura);
-        EmOrdem(x->dir, altura + 1);
+        EmOrdem(x->esq, altura + 1, aux);
+        Visitar(x, altura, aux);
+        EmOrdem(x->dir, altura + 1, aux);
     }
 }
 
@@ -107,7 +130,7 @@ No *Sucessor(int T, No *x) {
 
 // Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (00:01:13)
 void RotacaoEsq(int T, No *x) {
-    No *y = x->dir;
+    No *y = Copiar(x->dir); // No pseudo-código estava: No *y = x->dir;
     x->dir = y->esq;
 
     if (y->esq != nulo)
@@ -128,7 +151,7 @@ void RotacaoEsq(int T, No *x) {
 
 // Simétrico à RotacaoEsq
 void RotacaoDir(int T, No *y) {
-    No *x = y->esq;
+    No *x = Copiar(y->esq); // No pseudo-código estava: No *x = y->esq;
     y->esq = x->dir;
 
     if (x->dir != nulo)
@@ -154,6 +177,7 @@ void ConsertarInclusao(int T, No *z) {
             No *y = z->pai->pai->dir;
 
             if (y->cor == RUBRO) {
+                y = Copiar(y); // Copia y antes de modificá-lo (Não estava no pseudo-código)
                 z->pai->cor = NEGRO;
                 y->cor = NEGRO;
                 z = y->pai;
@@ -170,8 +194,9 @@ void ConsertarInclusao(int T, No *z) {
             }
         } else {
             No *y = z->pai->pai->esq;
-
+            
             if (y->cor == RUBRO) {
+                y = Copiar(y); // Copia y antes de modificá-lo (Não estava no pseudo-código)
                 z->pai->cor = NEGRO;
                 y->cor = NEGRO;
                 z = y->pai;
@@ -210,10 +235,14 @@ void Incluir(int T, No *z) {
 
     if (y == nulo)
         raiz[T] = z;
-    else if (z->chave < y->chave)
-        y->esq = z;
-    else
-        y->dir = z;
+    else {
+        y = Copiar(y); z->pai = y; // Copiar y antes de modificá-lo (Não estava no pseudo-código)
+
+        if (z->chave < y->chave)
+            y->esq = z;
+        else
+            y->dir = z;
+    }
 
     z->esq = z->dir = nulo;
     z->cor = RUBRO;
@@ -222,6 +251,9 @@ void Incluir(int T, No *z) {
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:03:06)
 void Transplantar(int T, No *u, No *v) {
+    // No *u_pai = Copiar(u->pai); // Copiar u->pai antes de modificá-lo (Não estava no pseudo-código)
+    // No *v = Copiar(v); // Copiar v antes de modificá-lo (Não estava no pseudo-código)
+
     if (u->pai == nulo)
         raiz[T] = v;
     else if (u == u->pai->esq)
@@ -236,6 +268,8 @@ void Transplantar(int T, No *u, No *v) {
 void ConsertarRemocao(int T, No *x) {
     while (x != raiz[T] && x->cor == NEGRO) {
         if (x == x->pai->esq) {
+            x->pai->dir = Copiar(x->pai->dir); // Não estava no pseudo-código
+
             No *w = x->pai->dir;
             if (w->cor == RUBRO) {
                 w->cor = NEGRO;
@@ -249,20 +283,27 @@ void ConsertarRemocao(int T, No *x) {
                 x = x->pai;
             } else {
                 if (w->dir->cor == NEGRO) {
+                    w->esq = Copiar(w->esq); // Não estava no pseudo-código
+
                     w->esq->cor = NEGRO;
                     w->cor = RUBRO;
-                    RotacaoDir(T, w); // No pseudocódigo estava RotacaoDir(T, x->pai);
+                    RotacaoDir(T, w); // No pseudo-código estava: RotacaoDir(T, x->pai);
                     w = x->pai->dir;
                 }
 
                 w->cor = x->pai->cor;
                 x->pai->cor = NEGRO;
+
+                w->dir = Copiar(w->dir); // Não estava no pseudo-código
+
                 w->dir->cor = NEGRO;
                 RotacaoEsq(T, x->pai);
 
                 x = raiz[T];
             }
         } else {
+            x->pai->esq = Copiar(x->pai->esq); // Não estava no pseudo-código
+
             No *w = x->pai->esq;
             if (w->cor == RUBRO) {
                 w->cor = NEGRO;
@@ -276,14 +317,19 @@ void ConsertarRemocao(int T, No *x) {
                 x = x->pai;
             } else {
                 if (w->esq->cor == NEGRO) {
+                    w->dir = Copiar(w->dir); // Não estava no pseudo-código
+
                     w->dir->cor = NEGRO;
                     w->cor = RUBRO;
-                    RotacaoEsq(T, w); // No pseudocódigo estava RotacaoEsq(T, x->pai);
+                    RotacaoEsq(T, w); // No pseudo-código estava: RotacaoEsq(T, x->pai);
                     w = x->pai->esq;
                 }
 
                 w->cor = x->pai->cor;
                 x->pai->cor = NEGRO;
+
+                w->esq = Copiar(w->esq); // Não estava no pseudo-código
+
                 w->esq->cor = NEGRO;
                 RotacaoDir(T, x->pai);
                 x = raiz[T];
@@ -296,44 +342,47 @@ void ConsertarRemocao(int T, No *x) {
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:05:05)
 void Remover(int T, No *z) {
-    No *y = z; int cor_original_y = y->cor; 
+    z = Copiar(z); // Copiar z antes de modificá-lo (Não estava no pseudo-código)
 
-    No *x; // Não tinha no pseudocódigo
+    No *y = z; int cor_original_y = y->cor; 
+    No *x; // Não estava no pseudo-código
     
     if (z->esq == nulo) {
-        x = z->dir;
+        x = Copiar(z->dir); // No pseudo-código estava: x = z->dir;
         Transplantar(T, z, x);
     } else if (z->dir == nulo) {
-        x = z->esq;
+        x = Copiar(z->esq); // No pseudo-código estava: x = z->esq;
         Transplantar(T, z, x);
     } else {
-        y = Sucessor(T, z);
-        x = y->dir; cor_original_y = y->cor;
+        y = Copiar(Sucessor(T, z)); // No pseudo-código estava: y = Sucessor(T, z);
+        x = Copiar(y->dir); // No pseudo-código estava: x = y->dir;
+        cor_original_y = y->cor;
         
-        // Não tinha no pseudocódigo
+        // Não estava no pseudo-código
         if (y->pai == z) {
             x->pai = y;
         } else {
             Transplantar(T, y, x);
-            y->dir = z->dir;
-            z->dir->pai = y;
+
+            y->dir = Copiar(z->dir); // No pseudo-código estava: y->dir = z->dir;
+            y->dir->pai = y; // No pseudo-código estava: z->dir->pai = y;
         }
         Transplantar(T, z, y);
-        y->esq = z->esq;
-        z->esq->pai = y;
+        y->esq = Copiar(z->esq); // No pseudo-código estava: y->esq = z->esq;
+        y->esq->pai = y; // No pseudo-código estava: z->esq->pai = y;
         y->cor = z->cor;
 
-        // Estava no pseudocódigo
+        // Estava no pseudo-código
         // Transplantar(T, y, x);
         // y->esq = z->esq;
         // y->esq->pai = y;
-        // y->dir = z->dir;
+        // y->dir = z->dir; // Caso (y->pai = z) então y->dir = y;
         // z->dir->pai = y;
         // Transplantar(T, z, y);
         // y->cor = z->cor;
     }
 
-    free(z); // Não tinha no pseudocódigo
+    // free(z); // Não estava no pseudo-código
 
     if (cor_original_y == NEGRO)
         ConsertarRemocao(T, x);
@@ -358,33 +407,33 @@ int main(int argc, char *argv[]) {
     nulo->esq = nulo->dir = nulo->pai = nulo;
 
     // Inicializa a primeira árvore
-    raiz[num_versions] = nulo;
+    raiz[num_versoes] = nulo;
 
     char tag[4]; int a, b;
     while (fscanf(arquivo, "%s %d %d", tag, &a, &b) >= 2) { // b será opcional
         if (strcmp(tag, "INC") == 0) {
-            num_versions++;
+            num_versoes++;
 
-            raiz[num_versions] = Copiar(raiz[num_versions - 1], nulo);
+            raiz[num_versoes] = raiz[num_versoes - 1];
 
             No *no = (No *) malloc(sizeof(No));
-            no->chave = a;
+            no->chave = a; no->versao = num_versoes;
 
-            Incluir(num_versions, no);
+            Incluir(num_versoes, no);
         } else if (strcmp(tag, "REM") == 0) {
-            num_versions++;
+            num_versoes++;
 
-            raiz[num_versions] = Copiar(raiz[num_versions - 1], nulo);
+            raiz[num_versoes] = raiz[num_versoes - 1];
 
-            No *no = Buscar(raiz[num_versions], a);
+            No *no = Buscar(raiz[num_versoes], a);
             
             if (no != nulo)
-                Remover(num_versions, no);
+                Remover(num_versoes, no);
             
         } else if (strcmp(tag, "SUC") == 0) {
             printf("SUC %d %d\n", a, b);
 
-            int v = b < 0 || b > num_versions ? num_versions : b;
+            int v = b < 0 || b > num_versoes ? num_versoes : b;
             
             No *no = SucessorCustom(v, a);
 
@@ -396,9 +445,10 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(tag, "IMP") == 0) {
             printf("IMP %d\n", a);
             
-            int v = a < 0 || a > num_versions ? num_versions : a;
+            int v = a < 0 || a > num_versoes ? num_versoes : a;
             
-            EmOrdem(raiz[v], 0);
+            int aux = 1;
+            EmOrdem(raiz[v], 0, &aux);
             
             printf("\n");
         } else {

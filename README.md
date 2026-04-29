@@ -54,9 +54,9 @@ Em vez de utilizar uma `struct` tradicional com ponteiros, a estrutura dos nós 
 * `EmOrdem(int x, int altura)`: Realiza o percurso em-ordem na árvore para a operação de impressão (IMP).
 
 ### Funções de Manutenção da Árvore Rubro-Negra
-* `Incluir(int T, int z)`: Insere um novo nó `z` na árvore da versão `T` mantendo as regras de árvore binária de busca.
-* `ConsertarInclusao(int T, int z)`: Restaura as propriedades rubro-negras após uma inserção.
-* `Remover(int T, int z)`: Remove o nó `z` da árvore na versão `T`.
+* `Incluir(int T, No *z)`: Insere um novo nó `z` na árvore da versão `T` mantendo as regras de árvore binária de busca.  
+* `ConsertarInclusao(int T, No *z)`: Restaura as propriedades rubro-negras após uma inserção.
+* `Remover(int T, No *z)`: Remove o nó `z` da árvore na versão `T`.
 * `Transplantar(int T, int u, int v)`: Função auxiliar que substitui a subárvore `u` pela subárvore `v`.
 * `ConsertarRemocao(int T, int x)`: Restaura as propriedades rubro-negras após uma remoção.
 * `RotacaoEsq(int T, int x)` / `RotacaoDir(int T, int y)`: Executam as rotações à esquerda e à direita para o balanceamento da árvore.
