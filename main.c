@@ -252,16 +252,14 @@ void Incluir(int T, No *z) {
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:03:06)
 void Transplantar(int T, No *u, No *v) {
-    No *u_pai = Copiar(u->pai); // Não estava no pseudo-código
-
-    if (u_pai == nulo)
+    if (u->pai == nulo)
         raiz[T] = v;
-    else if (u == u_pai->esq)
-        u_pai->esq = v;
+    else if (u == u->pai->esq)
+        u->pai->esq = v;
     else    
-        u_pai->dir = v;
+        u->pai->dir = v;
 
-    v->pai = u_pai;
+    v->pai = u->pai;
 }
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:56:51)
@@ -384,7 +382,7 @@ void Remover(int T, No *z) {
         // y->cor = z->cor;
     }
 
-    // free(z); // Não estava no pseudo-código
+    free(z); // Não estava no pseudo-código
 
     if (cor_original_y == NEGRO)
         ConsertarRemocao(T, x);
