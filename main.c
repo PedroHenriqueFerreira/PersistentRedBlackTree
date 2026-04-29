@@ -9,10 +9,11 @@
 typedef struct no {
     int chave;
     int cor;
-    int versao; // Não está no pseudo-código
+    struct no *pai;
     struct no *esq;
     struct no *dir;
-    struct no *pai;
+    
+    int versao; // Não está no pseudo-código
 } No;
 
 // Criando as raizes
@@ -22,36 +23,19 @@ int num_versoes = 0;
 // Criando o nó externo
 No *nulo = NULL;
 
-// Busca o sucessor estritamente maior
-No *SucessorCustom(int T, int k) {
-    No *x = raiz[T];
-    No *sucessor = nulo;
-
-    while (x != nulo) {
-        if (x->chave > k) {
-            sucessor = x;
-            x = x->esq;
-        } else {
-            x = x->dir;
-        }
-    }
-
-    return sucessor;
-}
-
 // Algoritmo que copia o caminho do nó passado até a raiz
 No *Copiar(No *x) {
     // Caso o nó seja nulo ou já esteja atualizado, apenas retorna
     if (x == nulo || x->versao == num_versoes)
         return x; 
 
-    // Copia os dados do nó
+    // Copia todos os dados do nó
     No *no = (No *) malloc(sizeof(No));
     no->chave = x->chave; no->cor = x->cor;
-    no->versao = num_versoes; // Atualiza a versão do nó para a versão atual
     no->pai = x->pai; no->esq = x->esq; no->dir = x->dir;
+    no->versao = num_versoes; // Atualiza a versão do nó para a versão atual
 
-    // Reconecta os filhos para o novo nó
+    // Reconecta os filhos para o novo nó (pai só é usado nas funções incluir e remover que atuam na versão mais atual da árvore)
     if (no->esq != nulo) no->esq->pai = no;
     if (no->dir != nulo) no->dir->pai = no;
 
@@ -72,6 +56,23 @@ No *Copiar(No *x) {
     return no;
 }
 
+// Busca o sucessor estritamente maior
+No *SucessorCustom(int T, int k) {
+    No *x = raiz[T];
+    No *sucessor = nulo;
+
+    while (x != nulo) {
+        if (x->chave > k) {
+            sucessor = x;
+            x = x->esq;
+        } else {
+            x = x->dir;
+        }
+    }
+
+    return sucessor;
+}
+
 // Algoritmo para visitar um nó
 void Visitar(No *x, int altura, int *aux) {
     if (*aux)
@@ -86,7 +87,7 @@ void Visitar(No *x, int altura, int *aux) {
 // Abaixo todos os algoritmos foram criados pelo professor durante as aulas
  
 // Estruturas de Dados: 10 Percursos em Árvores (00:33:42)
-void EmOrdem(No *x, int altura, int *aux) {
+void EmOrdem(No *x, int altura, int *aux) { // No pseudo-código aux não existe
     if (x != nulo) {
         EmOrdem(x->esq, altura + 1, aux);
         Visitar(x, altura, aux);
@@ -251,20 +252,24 @@ void Incluir(int T, No *z) {
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:03:06)
 void Transplantar(int T, No *u, No *v) {
-    if (u->pai == nulo)
-        raiz[T] = v;
-    else if (u == u->pai->esq)
-        u->pai->esq = v;
-    else    
-        u->pai->dir = v;
+    No *u_pai = Copiar(u->pai); // Não estava no pseudo-código
 
-    v->pai = u->pai;
+    if (u_pai == nulo)
+        raiz[T] = v;
+    else if (u == u_pai->esq)
+        u_pai->esq = v;
+    else    
+        u_pai->dir = v;
+
+    v->pai = u_pai;
 }
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:56:51)
 void ConsertarRemocao(int T, No *x) {
+    x = Copiar(x); // Copiar x antes de modificá-lo (Não estava no pseudo-código)
+
     while (x != raiz[T] && x->cor == NEGRO) {
-        if (x == x->pai->esq) {
+        if (x == x->pai->esq) { 
             x->pai->dir = Copiar(x->pai->dir); // Não estava no pseudo-código
 
             No *w = x->pai->dir;
@@ -345,14 +350,14 @@ void Remover(int T, No *z) {
     No *x; // Não estava no pseudo-código
     
     if (z->esq == nulo) {
-        x = Copiar(z->dir); // No pseudo-código estava: x = z->dir;
+        x = z->dir;
         Transplantar(T, z, x);
     } else if (z->dir == nulo) {
-        x = Copiar(z->esq); // No pseudo-código estava: x = z->esq;
+        x = z->esq;
         Transplantar(T, z, x);
     } else {
         y = Copiar(Sucessor(T, z)); // No pseudo-código estava: y = Sucessor(T, z);
-        x = Copiar(y->dir); // No pseudo-código estava: x = y->dir;
+        x = y->dir;
         cor_original_y = y->cor;
         
         // Não estava no pseudo-código
@@ -361,12 +366,12 @@ void Remover(int T, No *z) {
         } else {
             Transplantar(T, y, x);
 
-            y->dir = Copiar(z->dir); // No pseudo-código estava: y->dir = z->dir;
-            y->dir->pai = y; // No pseudo-código estava: z->dir->pai = y;
+            y->dir = z->dir;
+            z->dir->pai = y;
         }
         Transplantar(T, z, y);
-        y->esq = Copiar(z->esq); // No pseudo-código estava: y->esq = z->esq;
-        y->esq->pai = y; // No pseudo-código estava: z->esq->pai = y;
+        y->esq = z->esq;
+        z->esq->pai = y;
         y->cor = z->cor;
 
         // Estava no pseudo-código
