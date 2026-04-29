@@ -39,7 +39,7 @@ No *SucessorCustom(int T, int k) {
     return sucessor;
 }
 
-// Algoritmo que copia recursivamente o nó passado
+// Algoritmo que copia o caminho do nó passado até a raiz
 No *Copiar(No *x) {
     // Caso o nó seja nulo ou já esteja atualizado, apenas retorna
     if (x == nulo || x->versao == num_versoes)
@@ -48,7 +48,7 @@ No *Copiar(No *x) {
     // Copia os dados do nó
     No *no = (No *) malloc(sizeof(No));
     no->chave = x->chave; no->cor = x->cor;
-    no->versao = num_versoes;
+    no->versao = num_versoes; // Atualiza a versão do nó para a versão atual
     no->pai = x->pai; no->esq = x->esq; no->dir = x->dir;
 
     // Reconecta os filhos para o novo nó
@@ -251,9 +251,6 @@ void Incluir(int T, No *z) {
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:03:06)
 void Transplantar(int T, No *u, No *v) {
-    // No *u_pai = Copiar(u->pai); // Copiar u->pai antes de modificá-lo (Não estava no pseudo-código)
-    // No *v = Copiar(v); // Copiar v antes de modificá-lo (Não estava no pseudo-código)
-
     if (u->pai == nulo)
         raiz[T] = v;
     else if (u == u->pai->esq)

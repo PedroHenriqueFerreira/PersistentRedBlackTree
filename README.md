@@ -46,20 +46,20 @@ Em vez de utilizar uma `struct` tradicional com ponteiros, a estrutura dos nós 
 
 ### Funções Principais
 * `SucessorCustom(int T, int k)`: Busca o sucessor estritamente maior do nó com chave `k` na versão `T` da árvore.
-* `Copiar(No *x, No *pai_x)`: Realiza uma cópia profunda recursiva de uma árvore ou subárvore, gerando novos índices para garantir a persistência da versão anterior.
+* `Copiar(No *x, No *pai_x)`: Realiza uma cópia do nó `x` e de seus ancestrais até a raiz.
 * `Buscar(No *x, int k)`: Busca um nó com a chave `k` a partir do nó `x`.
-* `Minimo(int T, int x)`: Retorna o índice do nó com o menor valor na subárvore `x`.
-* `Sucessor(int T, int x)`: Retorna o índice do nó que é o sucessor em ordem do nó `x`.
-* `Visitar(int x, int altura)`: Imprime as informações de um nó formatadas como `chave,altura,cor`.
-* `EmOrdem(int x, int altura)`: Realiza o percurso em-ordem na árvore para a operação de impressão (IMP).
+* `Minimo(int T, No *x)`: Retorna o índice do nó com o menor valor na subárvore `x`.
+* `Sucessor(int T, No *x)`: Retorna o índice do nó que é o sucessor em ordem do nó `x`.
+* `Visitar(int x, int altura, int *aux)`: Imprime as informações de um nó formatadas como `chave,altura,cor`.
+* `EmOrdem(int x, int altura, int *aux)`: Realiza o percurso em-ordem na árvore para a operação de impressão (IMP).
 
 ### Funções de Manutenção da Árvore Rubro-Negra
 * `Incluir(int T, No *z)`: Insere um novo nó `z` na árvore da versão `T` mantendo as regras de árvore binária de busca.  
 * `ConsertarInclusao(int T, No *z)`: Restaura as propriedades rubro-negras após uma inserção.
 * `Remover(int T, No *z)`: Remove o nó `z` da árvore na versão `T`.
-* `Transplantar(int T, int u, int v)`: Função auxiliar que substitui a subárvore `u` pela subárvore `v`.
-* `ConsertarRemocao(int T, int x)`: Restaura as propriedades rubro-negras após uma remoção.
-* `RotacaoEsq(int T, int x)` / `RotacaoDir(int T, int y)`: Executam as rotações à esquerda e à direita para o balanceamento da árvore.
+* `Transplantar(int T, No *u, No *v)`: Função auxiliar que substitui a subárvore `u` pela subárvore `v`.
+* `ConsertarRemocao(int T, No *x)`: Restaura as propriedades rubro-negras após uma remoção.
+* `RotacaoEsq(int T, No *x)` / `RotacaoDir(int T, No *y)`: Executam as rotações à esquerda e à direita para o balanceamento da árvore.
 
 ## Arquivos do Projeto
 
