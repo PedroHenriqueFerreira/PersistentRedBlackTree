@@ -1,13 +1,17 @@
 # Árvore Rubro-Negra com Persistência Parcial
 
-Este repositório contém a implementação de uma Árvore Binária de Busca Rubro-Negra com Persistência Parcial. A estrutura mantém o histórico de suas modificações (inclusões e remoções), permitindo consultas em versões anteriores utilizando o método de cópia de caminho (*path copying*).
+Este repositório contém a implementação de uma Árvore Binária de Busca Rubro-Negra com Persistência Parcial. A estrutura mantém o histórico de suas modificações (inclusões e remoções), permitindo consultas em versões anteriores utilizando o método descrito por Driscoll et al. (1989). 
 
-## Linguagem de Programação Usada
+---
+
+## 1. A linguagem de programação usada (incluindo a versão)
 
 * **Linguagem:** C
-* **Versão:** GCC 15.2.0 (ou equivalente)
+* **Versão utilizada/testada:** GCC 15.2.0
 
-## Como Rodar o Seu Programa
+---
+
+## 2. Como rodar o seu programa
 
 O projeto inclui um `makefile` para automatizar e facilitar a compilação e execução. O programa lê os comandos a partir de um arquivo de texto (`.txt`).
 
@@ -20,7 +24,7 @@ Abra o terminal no diretório onde os arquivos do código estão localizados e u
    ```
 
 2. **Execução Padrão:**
-   Para rodar o programa utilizando o arquivo de entrada padrão (`entrada.txt`), execute:
+   Para rodar o programa utilizando o arquivo de entrada padrão (ex: `entrada.txt`), execute:
    ```bash
    make run
    ```
@@ -31,47 +35,55 @@ Abra o terminal no diretório onde os arquivos do código estão localizados e u
    make run INPUT=entrada2.txt
    ```
 
-4. **Alternativa manual:**
-   Se preferir compilar e executar manualmente sem usar o `makefile`, você pode usar os seguintes comandos:
+4. **Alternativa Manual (Sem Makefile):**
+   Se preferir compilar e executar manualmente, você pode usar os seguintes comandos:
    ```bash
    gcc -o programa.exe main.c
    ./programa.exe entrada.txt
    ```
 
-## Descrição das Estruturas e Funções
+---
 
-A árvore foi implementada utilizando uma estrutura de nós encadeados por ponteiros. O controle das múltiplas versões é feito através de um vetor global de raízes.
+## 3. Descrição das funções e estruturas
 
-### Estrutura Base (`struct no`)
-Cada nó da árvore é definido pela estrutura `No`, que contém:
-* `chave`: Armazena o valor (conteúdo) inteiro do nó.
-* `cor`: Armazena a cor do nó (`RUBRO` ou `NEGRO`).
-* `pai`, `esq` e `dir`: Ponteiros para o nó pai, filho esquerdo e filho direito, respectivamente.
-* `versao`: Armazena o número da versão em que o nó foi criado (utilizado para otimizar a função de cópia e evitar duplicações desnecessárias).
+A árvore foi implementada utilizando uma estrutura de nós encadeados suportada por um ecossistema de funções de leitura temporal (*Fat Nodes*). O controle das múltiplas versões é feito através de um vetor global de raízes.
 
-Variáveis globais importantes:
-* `raiz[MAX_VERSIONS]`: Um vetor que armazena os ponteiros para a raiz de cada versão gerada (limitado a 100 versões).
+### Estruturas Base (Equivalentes a `struct` no código)
+* `enum Campo`: Enumeração que define qual campo está sendo modificado em uma versão (`COR`, `ESQ` ou `DIR`).
+* `union Valor`: Estrutura flexível que armazena a alteração feita, podendo ser o ponteiro de um nó filho (`struct no *no`) ou a cor (`Cor cor`).
+* `struct Mod`: Representa o histórico de uma alteração no nó. Contém a `versao` temporal da mudança, o `campo` que foi alterado e o novo `valor`.
+* `struct no`: Estrutura principal que contém:
+  * `chave`: Armazena o valor numérico do nó.
+  * `cor`, `pai`, `esq` e `dir`: Campos base contendo o estado original do nó ao ser criado.
+  * `num_mods`: Contador inteiro apontando quantas modificações extras o nó já sofreu.
+  * `mods[MAX_MODS]`: Vetor que armazena as últimas modificações feitas no nó antes que ele precise ser clonado.
 
-### Funções Principais
-* `SucessorCustom(int T, int k)`: Busca o sucessor estritamente maior do nó com chave `k` na versão `T` da árvore.
-* `Copiar(No *x)`: Realiza uma cópia do nó `x` e propaga a cópia para os seus ancestrais até a raiz, garantindo a persistência parcial através da técnica de *path copying*.
-* `Buscar(No *x, int k)`: Busca um nó com a chave `k` a partir do nó `x`.
-* `Minimo(int T, No *x)`: Retorna o ponteiro do nó com o menor valor na subárvore `x`.
-* `Sucessor(int T, No *x)`: Retorna o ponteiro do nó que é o sucessor em ordem do nó `x`.
-* `Visitar(No *x, int altura, int *aux)`: Imprime as informações de um nó formatadas como `chave,altura,cor`.
-* `EmOrdem(No *x, int altura, int *aux)`: Realiza o percurso em-ordem na árvore para a operação de impressão (IMP).
+### Funções de Persistência (Controle de Versão)
+* `ler(int T, No *no, Campo campo)`: Analisa o vetor de modificações (`mods`) e retorna o estado de um campo (`COR`, `ESQ` ou `DIR`) exatamente como ele era na versão temporal `T`.
+* `escrever(int T, No *no, Campo campo, Valor valor)`: Tenta adicionar uma alteração no vetor `mods` do nó atual. Se não houver espaço, clona o nó para a nova versão e propaga recursivamente a alteração para cima até a raiz.
+* **Atalhos de Acesso:** `esq(T, no)`, `dir(T, no)`, `cor(T, no)`, `set_esq(T, no, valor)`, `set_dir(T, no, valor)` e `set_cor(T, no, valor)`. Para manter o resto do algoritmo com uma sintaxe limpa e legível.
 
-### Funções de Manutenção da Árvore Rubro-Negra
-* `Incluir(int T, No *z)`: Insere um novo nó `z` na árvore da versão `T`, mantendo as propriedades de busca.  
-* `ConsertarInclusao(int T, No *z)`: Restaura as propriedades rubro-negras após uma inserção.
-* `Remover(int T, No *z)`: Remove o nó `z` da árvore na versão atual.
-* `Transplantar(int T, No *u, No *v)`: Função auxiliar que substitui a subárvore enraizada em `u` pela subárvore enraizada em `v`.
-* `ConsertarRemocao(int T, No *x)`: Restaura as propriedades rubro-negras após uma remoção.
-* `RotacaoEsq(int T, No *x)` / `RotacaoDir(int T, No *y)`: Executam as rotações à esquerda e à direita para o balanceamento da árvore.
+### Funções Principais (Navegação e Impressão)
+* `SucessorCustom(int T, int k)`: Busca iterativamente o sucessor estritamente maior que a chave `k`, enxergando apenas a topologia da versão `T`.
+* `Buscar(int T, No *x, int k)`: Busca recursivamente um nó com a chave `k` na versão `T`.
+* `Minimo(int T, No *x)`: Retorna o ponteiro do nó com o menor valor na subárvore `x` na versão consultada.
+* `Sucessor(int T, No *x)`: Encontra o sucessor em-ordem do nó `x`.
+* `Visitar(int T, No *x, int altura, int *aux)`: Imprime as informações de um nó formatadas como `chave,altura,cor`.
+* `EmOrdem(int T, No *x, int altura, int *aux)`: Realiza o percurso in-order na árvore para a operação de impressão.
 
-## Arquivos do Projeto
+### Funções de Manutenção (Árvore Rubro-Negra)
+* `Incluir(int T, No *z)`: Insere o novo nó `z` na versão atual da árvore, comportando-se topologicamente como uma BST, e em seguida chama o conserto.
+* `ConsertarInclusao(int T, No *z)`: Avalia os casos de violação rubro-negra de inserção e promove o rebalanceamento de cores e rotações.
+* `Remover(int T, No *z)`: Substitui ou remove fisicamente o nó `z` da árvore atual. Utiliza uma técnica de *Nó Auxiliar* (Fantasma) caso o nó removido seja Negro sem filhos, para permitir que o conserto da árvore não precise lidar com ponteiros de nós nulos.
+* `Transplantar(int T, No *u, No *v)`: Desconecta um nó `u` de seu pai e liga o nó `v` em seu lugar.
+* `ConsertarRemocao(int T, No *x)`: Corrige desequilíbrios de "altura negra" gerados na deleção.
+* `RotacaoEsq(int T, No *x)` / `RotacaoDir(int T, No *y)`: Rotacionam a estrutura para equilibrar as alturas, usando a função `escrever()` para garantir que cada rotação vire histórico persistente.
 
-Todo o código-fonte foi desenvolvido de forma monolítica para facilitar a compilação e a gestão da memória.
+---
 
-* **`main.c`**: Contém a definição da `struct`, o vetor de versões globais, todas as funções listadas acima e a função `main` responsável pelo controle de fluxo, leitura de arquivos e interpretação dos comandos (`INC`, `REM`, `SUC`, `IMP`).
-* **`makefile`**: Script de automação que define as rotinas de compilação (`build`) e execução (`run`) do programa, manipulando a entrada de arquivos de forma dinâmica.
+## 4. Arquivos onde as estruturas e funções se encontram
+
+Todo o código-fonte principal e as estruturas de dados foram concentrados em um único arquivo monolítico. Isso evita dependências de compilação complexas e centraliza a alocação de memória do controle de versões:
+
+* **`main.c`**: Contém a definição completa das estruturas (enums `Campo`, união `Valor`, structs `Mod` e `No`), a declaração do vetor global das versões (`raiz[MAX_VERSIONS]`), bem como todas as funções detalhadas no item anterior. Além disso, contém o ponto de entrada `main()`, que manipula a leitura/interpretação das tags do arquivo `.txt` (`INC`, `REM`, `SUC`, `IMP`).
+* **`makefile`**: Script de configuração de ambiente de desenvolvimento. Responsável pelas diretrizes automatizadas de compilação do `main.c` em C e pela criação do executável.

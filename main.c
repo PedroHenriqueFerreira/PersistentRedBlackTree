@@ -2,18 +2,39 @@
 #include <stdlib.h>
 #include <string.h>
 
+#define MAX_MODS 2
 #define MAX_VERSIONS 100
-#define NEGRO 0
-#define RUBRO 1
 
+// Definindo as cores NEGRO e RUBRO
+typedef enum { NEGRO, RUBRO } Cor;
+
+// Definindo os campos COR, ESQ, DIR
+typedef enum { COR, ESQ, DIR } Campo;
+
+// Definindo o valor como No *ou Cor
+typedef union {
+    struct no *no;
+    Cor cor;
+} Valor;
+
+// Estrutura de uma modificação
+typedef struct {
+    int versao;
+    Campo campo;
+    Valor valor;
+} Mod;
+
+// Estrutura de um nó com persistência parcial
 typedef struct no {
     int chave;
-    int cor;
+
+    Cor cor;
     struct no *pai;
     struct no *esq;
     struct no *dir;
-    
-    int versao; // Não está no pseudo-código
+
+    int num_mods;
+    Mod mods[MAX_MODS];
 } No;
 
 // Criando as raizes
@@ -23,38 +44,87 @@ int num_versoes = 0;
 // Criando o nó externo
 No *nulo = NULL;
 
-// Algoritmo que copia o caminho do nó passado até a raiz
-No *Copiar(No *x) {
-    // Caso o nó seja nulo ou já esteja atualizado, apenas retorna
-    if (x == nulo || x->versao == num_versoes)
-        return x; 
+// Função para ler o valor de um campo em uma versão específica
+Valor ler(int T, No *no, Campo campo) {
+    Valor valor; valor.no = nulo; valor.cor = NEGRO;
 
-    // Copia todos os dados do nó
-    No *no = (No *) malloc(sizeof(No));
-    no->chave = x->chave; no->cor = x->cor;
-    no->pai = x->pai; no->esq = x->esq; no->dir = x->dir;
-    no->versao = num_versoes; // Atualiza a versão do nó para a versão atual
+    if (no == nulo) return valor;
+    
+    // Lê o valor do campo especificado
+    if (campo == COR) valor.cor = no->cor;
+    else if (campo == ESQ) valor.no = no->esq;
+    else if (campo == DIR) valor.no = no->dir;
 
-    // Reconecta os filhos para o novo nó (pai só é usado nas funções incluir e remover que atuam na versão mais atual da árvore)
-    if (no->esq != nulo) no->esq->pai = no;
-    if (no->dir != nulo) no->dir->pai = no;
+    // Atualiza o valor do campo com a modificação mais recente
+    for (int i = 0; i < no->num_mods; i++) {
+        if (no->mods[i].campo != campo || no->mods[i].versao > T)  continue;
+        valor = no->mods[i].valor;
+    }
+    
+    return valor;
+}
 
-    if (no->pai == nulo)
-        raiz[num_versoes] = no; // Atualiza a raiz para a nova versão
-    else {
-        int is_esq = no->pai->esq == x;
+// Funções auxiliares para acessar os campos de um nó
+No *esq(int T, No *no) { return ler(T, no, ESQ).no; }
+No *dir(int T, No *no) { return ler(T, no, DIR).no; }
+Cor cor(int T, No *no) { return ler(T, no, COR).cor; }
 
-        no->pai = Copiar(no->pai); // Propaga a cópia para o pai
+// Função para escrever o valor de um campo em uma versão específica
+No* escrever(int T, No *no, Campo campo, Valor valor) {
+    if (no == nulo) return nulo;
 
-        // Reconecta o pai para o novo nó
-        if (is_esq) 
-            no->pai->esq = no;
-        else
-            no->pai->dir = no;
+    // Caso haja espaço para modificações, adiciona a modificação ao nó
+    if (no->num_mods < MAX_MODS) {
+        no->mods[no->num_mods].versao = T;
+        no->mods[no->num_mods].campo = campo;
+        no->mods[no->num_mods].valor = valor;
+        no->num_mods++;
+
+        if ((campo == ESQ || campo == DIR) && valor.no != nulo) 
+            valor.no->pai = no;
+        
+        return no;
     }
 
-    return no;
+    // Criando uma copia do nó para a nova versão
+    No *novo = (No*) malloc(sizeof(No));
+    novo->chave = no->chave;
+    novo->cor = cor(T, no);
+    novo->pai = no->pai;
+    novo->esq = esq(T, no);
+    novo->dir = dir(T, no);
+    novo->num_mods = 0;
+
+    // Reconecta os filhos para o novo nó
+    if (novo->esq != nulo) novo->esq->pai = novo;
+    if (novo->dir != nulo) novo->dir->pai = novo;
+
+    // Aplica a modificação no novo nó
+    if (campo == COR) novo->cor = valor.cor;
+    else {
+        if (campo == ESQ) novo->esq = valor.no;
+        else if (campo == DIR) novo->dir = valor.no;
+
+        if (valor.no != nulo) valor.no->pai = novo;
+    }
+    
+    // Atualiza recursivamente o pai para apontar para o novo nó
+    if (no->pai == nulo) {
+        raiz[T] = novo;
+    } else {
+        Campo campo_pai = (esq(T, no->pai) == no) ? ESQ : DIR;
+        Valor valor_pai; valor_pai.no = novo;
+    
+        novo->pai = escrever(T, no->pai, campo_pai, valor_pai);
+    }
+
+    return novo;
 }
+
+// Funções auxiliares para escrever os campos de um nó
+No* set_esq(int T, No *no, No *valor) { return escrever(T, no, ESQ, (Valor){ .no = valor }); }
+No* set_dir(int T, No *no, No *valor) { return escrever(T, no, DIR, (Valor){ .no = valor }); }
+No* set_cor(int T, No *no, Cor valor) { return escrever(T, no, COR, (Valor){ .cor = valor }); }
 
 // Busca o sucessor estritamente maior
 No *SucessorCustom(int T, int k) {
@@ -64,9 +134,9 @@ No *SucessorCustom(int T, int k) {
     while (x != nulo) {
         if (x->chave > k) {
             sucessor = x;
-            x = x->esq;
+            x = esq(T, x);
         } else {
-            x = x->dir;
+            x = dir(T, x);
         }
     }
 
@@ -74,148 +144,143 @@ No *SucessorCustom(int T, int k) {
 }
 
 // Algoritmo para visitar um nó
-void Visitar(No *x, int altura, int *aux) {
-    if (*aux)
-        *aux = 0;
-    else
-        printf(" ");
+void Visitar(int T, No *x, int altura, int *aux) {
+    if (*aux) *aux = 0;
+    else printf(" ");
 
-    printf("%d,%d,%c", x->chave, altura, x->cor == NEGRO ? 'N' : 'R');
+    printf("%d,%d,%c", x->chave, altura, cor(T, x) == NEGRO ? 'N' : 'R');
 }
 
 // ------------------------------------------------------------------------
 // Abaixo todos os algoritmos foram criados pelo professor durante as aulas
  
 // Estruturas de Dados: 10 Percursos em Árvores (00:33:42)
-void EmOrdem(No *x, int altura, int *aux) { // No pseudo-código aux não existe
+void EmOrdem(int T, No *x, int altura, int *aux) { // No pseudo-código T e aux não existe
     if (x != nulo) {
-        EmOrdem(x->esq, altura + 1, aux);
-        Visitar(x, altura, aux);
-        EmOrdem(x->dir, altura + 1, aux);
+        EmOrdem(T, esq(T, x), altura + 1, aux);
+        Visitar(T, x, altura, aux);
+        EmOrdem(T, dir(T, x), altura + 1, aux);
     }
 }
 
 // Estruturas de Dados: 11 Árvore Binária de Busca (00:26:46)
-No *Buscar(No *x, int k) {
-    if (x == nulo || x->chave == k) 
-        return x;
-
-    if (k < x->chave)
-        return Buscar(x->esq, k);
-
-    return Buscar(x->dir, k);
+No *Buscar(int T, No *x, int k) { // No pseudo-código T não existe
+    if (x == nulo || x->chave == k) return x;
+    if (k < x->chave) return Buscar(T, esq(T, x), k);
+    return Buscar(T, dir(T, x), k);
 }
 
 // Estruturas de Dados: 11 Árvore Binária de Busca (00:35:27)
 No *Minimo(int T, No *x) {
-    while (x->esq != nulo)
-        x = x->esq;
+    while (esq(T, x) != nulo) 
+        x = esq(T, x);
 
     return x;
 }
 
 // Estruturas de Dados: 11 Árvore Binária de Busca (01:01:38)
 No *Sucessor(int T, No *x) {
-    if (x->dir != nulo)
-        return Minimo(T, x->dir);
+    if (dir(T, x) != nulo)
+        return Minimo(T, dir(T, x));
 
     No *y = x->pai;
 
-    while (y != nulo && x == y->dir) {
-        x = y;
-        y = y->pai;
+    while (y != nulo && x == dir(T, y)) {
+        x = y; y = y->pai;
     }
 
     return y;
 }
 
 // Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (00:01:13)
-void RotacaoEsq(int T, No *x) {
-    No *y = Copiar(x->dir); // No pseudo-código estava: No *y = x->dir;
-    x->dir = y->esq;
+No* RotacaoEsq(int T, No *x) { // No pseudo-código não existe retorno
+    No *y = dir(T, x);
+    x = set_dir(T, x, esq(T, y)); // Atualizando x (Não estava no pseudo-código)
 
-    if (y->esq != nulo)
-        y->esq->pai = x;
+    No *y_esq = esq(T, y);
+    if (y_esq != nulo) y_esq->pai = x;
 
     y->pai = x->pai;
 
     if (x->pai == nulo)
         raiz[T] = y;
-    else if (x == x->pai->esq)
-        x->pai->esq = y;
+    else if (x == esq(T, x->pai))
+        set_esq(T, x->pai, y);
     else
-        x->pai->dir = y;
+        set_dir(T, x->pai, y);
 
-    y->esq = x;
+    y = set_esq(T, y, x);
     x->pai = y;
+
+    return x;
 }
 
 // Simétrico à RotacaoEsq
-void RotacaoDir(int T, No *y) {
-    No *x = Copiar(y->esq); // No pseudo-código estava: No *x = y->esq;
-    y->esq = x->dir;
+No* RotacaoDir(int T, No *y) { // No pseudo-código não existe retorno
+    No *x = esq(T, y);
+    y = set_esq(T, y, dir(T, x)); // Atualizando y (Não estava no pseudo-código)
 
-    if (x->dir != nulo)
-        x->dir->pai = y;
+    No *x_dir = dir(T, x);
+    if (x_dir != nulo) x_dir->pai = y;
 
     x->pai = y->pai;
 
     if (y->pai == nulo)
         raiz[T] = x;
-    else if (y == y->pai->dir)
-        y->pai->dir = x;
+    else if (y == dir(T, y->pai))
+        set_dir(T, y->pai, x);
     else
-        y->pai->esq = x;
+        set_esq(T, y->pai, x);
 
-    x->dir = y;
+    x = set_dir(T, x, y);
     y->pai = x;
+
+    return y;
 }
 
 // Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (01:02:37)
 void ConsertarInclusao(int T, No *z) {
-    while (z->pai->cor == RUBRO) {
-        if (z->pai == z->pai->pai->esq) {
-            No *y = z->pai->pai->dir;
+    while (cor(T, z->pai) == RUBRO) {
+        if (z->pai == esq(T, z->pai->pai)) {
+            No *y = dir(T, z->pai->pai);
 
-            if (y->cor == RUBRO) {
-                y = Copiar(y); // Copia y antes de modificá-lo (Não estava no pseudo-código)
-                z->pai->cor = NEGRO;
-                y->cor = NEGRO;
+            if (cor(T, y) == RUBRO) {
+                set_cor(T, z->pai, NEGRO);
+                set_cor(T, y, NEGRO);
                 z = y->pai;
-                z->cor = RUBRO;
+                z = set_cor(T, z, RUBRO);
             } else { 
-                if (z == z->pai->dir) {
+                if (z == dir(T, z->pai)) {
                     z = z->pai;
-                    RotacaoEsq(T, z);
+                    z = RotacaoEsq(T, z);
                 }
                 
-                z->pai->cor = NEGRO;
-                z->pai->pai->cor = RUBRO;
+                set_cor(T, z->pai, NEGRO);
+                set_cor(T, z->pai->pai, RUBRO);
                 RotacaoDir(T, z->pai->pai);
             }
         } else {
-            No *y = z->pai->pai->esq;
+            No *y = esq(T, z->pai->pai);
             
-            if (y->cor == RUBRO) {
-                y = Copiar(y); // Copia y antes de modificá-lo (Não estava no pseudo-código)
-                z->pai->cor = NEGRO;
-                y->cor = NEGRO;
+            if (cor(T, y) == RUBRO) {
+                set_cor(T, z->pai, NEGRO);
+                set_cor(T, y, NEGRO);
                 z = y->pai;
-                z->cor = RUBRO;
+                z = set_cor(T, z, RUBRO);
             } else { 
-                if (z == z->pai->esq) {
+                if (z == esq(T, z->pai)) {
                     z = z->pai;
-                    RotacaoDir(T, z);
+                    z = RotacaoDir(T, z);
                 }
                 
-                z->pai->cor = NEGRO;
-                z->pai->pai->cor = RUBRO;
+                set_cor(T, z->pai, NEGRO);
+                set_cor(T, z->pai->pai, RUBRO);
                 RotacaoEsq(T, z->pai->pai);
             }
         }
     } 
 
-    raiz[T]->cor = NEGRO;
+    set_cor(T, raiz[T], NEGRO);
 }
 
 // Estruturas de Dados: 14 Inclusão em Árvore Rubro-Negra (17:36)
@@ -226,27 +291,24 @@ void Incluir(int T, No *z) {
     while (x != nulo) {
         y = x;
 
-        if (z->chave < x->chave)
-            x = x->esq;
-        else
-            x = x->dir;   
+        if (z->chave < x->chave) 
+            x = esq(T, x);
+        else 
+            x = dir(T, x);
     }
 
     z->pai = y;
 
-    if (y == nulo)
-        raiz[T] = z;
+    if (y == nulo) raiz[T] = z;
     else {
-        y = Copiar(y); z->pai = y; // Copiar y antes de modificá-lo (Não estava no pseudo-código)
-
-        if (z->chave < y->chave)
-            y->esq = z;
-        else
-            y->dir = z;
+        if (z->chave < y->chave) 
+            set_esq(T, y, z);
+        else 
+            set_dir(T, y, z);
     }
 
-    z->esq = z->dir = nulo;
-    z->cor = RUBRO;
+    z->esq = z->dir = nulo; z->cor = RUBRO;
+
     ConsertarInclusao(T, z);
 }
 
@@ -254,139 +316,143 @@ void Incluir(int T, No *z) {
 void Transplantar(int T, No *u, No *v) {
     if (u->pai == nulo)
         raiz[T] = v;
-    else if (u == u->pai->esq)
-        u->pai->esq = v;
+    else if (u == esq(T, u->pai))
+        set_esq(T, u->pai, v);
     else    
-        u->pai->dir = v;
-
+        set_dir(T, u->pai, v);
+    
     v->pai = u->pai;
 }
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:56:51)
 void ConsertarRemocao(int T, No *x) {
-    x = Copiar(x); // Copiar x antes de modificá-lo (Não estava no pseudo-código)
-
-    while (x != raiz[T] && x->cor == NEGRO) {
-        if (x == x->pai->esq) { 
-            x->pai->dir = Copiar(x->pai->dir); // Não estava no pseudo-código
-
-            No *w = x->pai->dir;
-            if (w->cor == RUBRO) {
-                w->cor = NEGRO;
-                x->pai->cor = RUBRO;
+    while (x != raiz[T] && cor(T, x) == NEGRO) {
+        if (x == esq(T, x->pai)) { 
+            No *w = dir(T, x->pai);
+            if (cor(T, w) == RUBRO) {
+                set_cor(T, w, NEGRO);
+                set_cor(T, x->pai, RUBRO);
                 RotacaoEsq(T, x->pai);
-                w = x->pai->dir;
+                w = dir(T, x->pai);
             }
-
-            if (w->esq->cor == NEGRO && w->dir->cor == NEGRO) {
-                w->cor = RUBRO;
+            
+            if (cor(T, esq(T, w)) == NEGRO && cor(T, dir(T, w)) == NEGRO) {
+                set_cor(T, w, RUBRO);
                 x = x->pai;
             } else {
-                if (w->dir->cor == NEGRO) {
-                    w->esq = Copiar(w->esq); // Não estava no pseudo-código
-
-                    w->esq->cor = NEGRO;
-                    w->cor = RUBRO;
+                if (cor(T, dir(T, w)) == NEGRO) {
+                    set_cor(T, esq(T, w), NEGRO);
+                    w = set_cor(T, w, RUBRO);
                     RotacaoDir(T, w); // No pseudo-código estava: RotacaoDir(T, x->pai);
-                    w = x->pai->dir;
+                    w = dir(T, x->pai);
                 }
 
-                w->cor = x->pai->cor;
-                x->pai->cor = NEGRO;
-
-                w->dir = Copiar(w->dir); // Não estava no pseudo-código
-
-                w->dir->cor = NEGRO;
+                w = set_cor(T, w, cor(T, x->pai));
+                set_cor(T, x->pai, NEGRO);
+                set_cor(T, dir(T, w), NEGRO);
                 RotacaoEsq(T, x->pai);
 
                 x = raiz[T];
             }
         } else {
-            x->pai->esq = Copiar(x->pai->esq); // Não estava no pseudo-código
-
-            No *w = x->pai->esq;
-            if (w->cor == RUBRO) {
-                w->cor = NEGRO;
-                x->pai->cor = RUBRO;
+            No *w = esq(T, x->pai);
+            if (cor(T, w) == RUBRO) {
+                set_cor(T, w, NEGRO);
+                set_cor(T, x->pai, RUBRO);
                 RotacaoDir(T, x->pai);
-                w = x->pai->esq;
+                w = esq(T, x->pai);
             }
 
-            if (w->dir->cor == NEGRO && w->esq->cor == NEGRO) {
-                w->cor = RUBRO;
+            if (cor(T, dir(T, w)) == NEGRO && cor(T, esq(T, w)) == NEGRO) {
+                set_cor(T, w, RUBRO);
                 x = x->pai;
             } else {
-                if (w->esq->cor == NEGRO) {
-                    w->dir = Copiar(w->dir); // Não estava no pseudo-código
-
-                    w->dir->cor = NEGRO;
-                    w->cor = RUBRO;
+                if (cor(T, esq(T, w)) == NEGRO) {
+                    set_cor(T, dir(T, w), NEGRO);
+                    w = set_cor(T, w, RUBRO);
                     RotacaoEsq(T, w); // No pseudo-código estava: RotacaoEsq(T, x->pai);
-                    w = x->pai->esq;
+                    w = esq(T, x->pai);
                 }
 
-                w->cor = x->pai->cor;
-                x->pai->cor = NEGRO;
-
-                w->esq = Copiar(w->esq); // Não estava no pseudo-código
-
-                w->esq->cor = NEGRO;
+                w = set_cor(T, w, cor(T, x->pai));
+                set_cor(T, x->pai, NEGRO);
+                set_cor(T, esq(T, w), NEGRO);
                 RotacaoDir(T, x->pai);
+
                 x = raiz[T];
             }
         }
     }
 
-    x->cor = NEGRO;
+    set_cor(T, x, NEGRO);
 }
 
 // Estruturas de Dados: 15 Remoção em Árvore Rubro-Negra (00:05:05)
 void Remover(int T, No *z) {
-    z = Copiar(z); // Copiar z antes de modificá-lo (Não estava no pseudo-código)
-
-    No *y = z; int cor_original_y = y->cor; 
+    No *y = z; int cor_original_y = cor(T, y); 
     No *x; // Não estava no pseudo-código
-    
-    if (z->esq == nulo) {
-        x = z->dir;
-        Transplantar(T, z, x);
-    } else if (z->dir == nulo) {
-        x = z->esq;
+    No *x_pai; Campo campo; // Não estava no pseudo-código
+
+    if (esq(T, z) == nulo) {
+        x_pai = z->pai; campo = (z == esq(T, z->pai)) ? ESQ : DIR; // Não estava no pseudo-código
+        x = dir(T, z);
+        Transplantar(T, z, x); 
+    } else if (dir(T, z) == nulo) {
+        x_pai = z->pai; campo = (z == esq(T, z->pai)) ? ESQ : DIR; // Não estava no pseudo-código
+        x = esq(T, z);
         Transplantar(T, z, x);
     } else {
-        y = Copiar(Sucessor(T, z)); // No pseudo-código estava: y = Sucessor(T, z);
-        x = y->dir;
-        cor_original_y = y->cor;
-        
-        // Não estava no pseudo-código
-        if (y->pai == z) {
-            x->pai = y;
-        } else {
-            Transplantar(T, y, x);
+        y = Sucessor(T, z);
+        x = dir(T, y); cor_original_y = cor(T, y);
 
-            y->dir = z->dir;
-            z->dir->pai = y;
+        int y_pai_eq_z = (y->pai == z);
+
+        // Não estava no pseudo-código
+
+        if (!y_pai_eq_z) {
+            x_pai = y->pai; campo = (y == esq(T, y->pai)) ? ESQ : DIR; // Não estava no pseudo-código
+            Transplantar(T, y, x);
+            y = set_dir(T, y, dir(T, z));
         }
+        
         Transplantar(T, z, y);
-        y->esq = z->esq;
-        z->esq->pai = y;
-        y->cor = z->cor;
+        y = set_esq(T, y, esq(T, z));
+        y = set_cor(T, y, cor(T, z));
+
+        if (y_pai_eq_z) { x_pai = y; campo = DIR; }
 
         // Estava no pseudo-código
+
         // Transplantar(T, y, x);
         // y->esq = z->esq;
         // y->esq->pai = y;
-        // y->dir = z->dir; // Caso (y->pai = z) então y->dir = y;
+        // y->dir = z->dir; // Caso (y->pai = z) então y->dir = y (ciclo);
         // z->dir->pai = y;
         // Transplantar(T, z, y);
         // y->cor = z->cor;
     }
 
-    free(z); // Não estava no pseudo-código
+    if (cor_original_y == NEGRO) {
+        // Caso especial quando x é nulo (Não estava no pseudo-código)
+        if (x == nulo && x_pai != nulo) {
+            No *aux = (No*) malloc(sizeof(No));
+            *aux = *nulo;
+        
+            if (campo == ESQ) x_pai = set_esq(T, x_pai, aux);
+            else x_pai = set_dir(T, x_pai, aux);
 
-    if (cor_original_y == NEGRO)
-        ConsertarRemocao(T, x);
-}  
+            ConsertarRemocao(T, aux);
+
+            x_pai = aux->pai;
+
+            if (aux == esq(T, x_pai)) x_pai = set_esq(T, x_pai, nulo);
+            else x_pai = set_dir(T, x_pai, nulo);
+
+            free(aux);
+        } else
+            ConsertarRemocao(T, x);
+    }
+}
 
 int main(int argc, char *argv[]) {
     if (argc < 2) {
@@ -403,8 +469,8 @@ int main(int argc, char *argv[]) {
 
     // Inicializando o nó externo
     nulo = (No *) malloc(sizeof(No));
-    nulo->cor = NEGRO; 
-    nulo->esq = nulo->dir = nulo->pai = nulo;
+    nulo->cor = NEGRO; nulo->num_mods = 0;
+    nulo->pai = nulo->esq = nulo->dir = nulo;
 
     // Inicializa a primeira árvore
     raiz[num_versoes] = nulo;
@@ -413,22 +479,19 @@ int main(int argc, char *argv[]) {
     while (fscanf(arquivo, "%s %d %d", tag, &a, &b) >= 2) { // b será opcional
         if (strcmp(tag, "INC") == 0) {
             num_versoes++;
-
             raiz[num_versoes] = raiz[num_versoes - 1];
 
             No *no = (No *) malloc(sizeof(No));
-            no->chave = a; no->versao = num_versoes;
+            no->chave = a; no->num_mods = 0;
 
             Incluir(num_versoes, no);
         } else if (strcmp(tag, "REM") == 0) {
             num_versoes++;
-
             raiz[num_versoes] = raiz[num_versoes - 1];
 
-            No *no = Buscar(raiz[num_versoes], a);
+            No *no = Buscar(num_versoes, raiz[num_versoes], a);
             
-            if (no != nulo)
-                Remover(num_versoes, no);
+            if (no != nulo) Remover(num_versoes, no);
             
         } else if (strcmp(tag, "SUC") == 0) {
             printf("SUC %d %d\n", a, b);
@@ -448,12 +511,12 @@ int main(int argc, char *argv[]) {
             int v = a < 0 || a > num_versoes ? num_versoes : a;
             
             int aux = 1;
-            EmOrdem(raiz[v], 0, &aux);
+            EmOrdem(v, raiz[v], 0, &aux);
             
             printf("\n");
         } else {
-            fprintf(stderr, "Tag inválida: %s\n", tag);
-            return 1;
+            // fprintf(stderr, "Tag inválida: %s\n", tag);
+            // return 1;
         }
     }
     
