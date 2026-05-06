@@ -57,7 +57,7 @@ Valor ler(int T, No *no, Campo campo) {
 
     // Atualiza o valor do campo com a modificação mais recente
     for (int i = 0; i < no->num_mods; i++) {
-        if (no->mods[i].campo != campo || no->mods[i].versao > T)  continue;
+        if (no->mods[i].campo != campo || no->mods[i].versao > T) continue;
         valor = no->mods[i].valor;
     }
     
