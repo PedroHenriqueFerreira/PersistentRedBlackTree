@@ -4,21 +4,14 @@ Este repositório contém a implementação de uma Árvore Binária de Busca Rub
 
 ---
 
-## 1. Dados da Aluna
-
-* **Nome:** DENISE RÍSIA ANDRADE CARVALHO
-* **Matrícula:** 603124
-
----
-
-## 2. Linguagem de Programação Usada
+## 1. Linguagem de Programação Usada
 
 * **Linguagem:** C
 * **Versão utilizada/testada:** GCC 15.2.0
 
 ---
 
-## 3. Como rodar o seu programa
+## 2. Como rodar o seu programa
 
 O projeto inclui um `makefile` para automatizar e facilitar a compilação e execução. O programa lê os comandos a partir de um arquivo de texto (`.txt`).
 
@@ -51,7 +44,7 @@ Abra o terminal no diretório onde os arquivos do código estão localizados e u
 
 ---
 
-## 4. Descrição das Funções e Estruturas
+## 3. Descrição das Funções e Estruturas
 
 A árvore foi implementada utilizando uma estrutura de nós encadeados suportada por um ecossistema de funções de leitura temporal. O controle das múltiplas versões é feito através de um vetor global de raízes.
 
@@ -88,7 +81,7 @@ A árvore foi implementada utilizando uma estrutura de nós encadeados suportada
 
 ---
 
-## 5. Arquivos onde as estruturas e funções se encontram
+## 4. Arquivos onde as estruturas e funções se encontram
 
 Todo o código-fonte principal e as estruturas de dados foram concentrados em um único arquivo monolítico. Isso evita dependências de compilação complexas e centraliza a alocação de memória do controle de versões:
 
